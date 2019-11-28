@@ -27,7 +27,7 @@ app.post('/start', (request, response) => {
 
   // Response data
   const data = {
-    color: '#DFFF00',
+    color: '#0000FF',
   }
 
   return response.json(data)
@@ -35,14 +35,38 @@ app.post('/start', (request, response) => {
 
 // Handle POST request to '/move'
 app.post('/move', (request, response) => {
-  // NOTE: Do something here to generate your move
+  console.log('---------------------------------------------------');
+  console.log({ board: request.body.board });
+  console.log({ body: request.body.you.body });
 
-  // Response data
-  const data = {
-    move: 'up', // one of: ['up','down','left','right']
-  }
+  const you = request.body.you;
+  const board = request.body.board;
 
-  return response.json(data)
+  const moves = ['up','down','left','right'].filter((dir) => {
+    // Get my head
+    let { x, y } = you.body[0];
+
+    if (dir === 'left') x -= 1;
+    if (dir === 'right') x += 1;
+    if (dir === 'up') y -= 1;
+    if (dir === 'down') y += 1;
+    
+    const noHitSelf = you.body.reduce((res, segment) => {
+      return res && (segment.x !== x || segment.y !== y);
+    }, true);
+    
+    const noOutOfBounds = x >= 0 && x < board.width && y >= 0 && y < board.height;
+    
+    return noHitSelf && noOutOfBounds;
+  })
+  
+  console.log({ moves: moves });
+  
+  const move =  moves[Math.floor(Math.random() * moves.length)];
+  
+  console.log(move);
+  
+  return response.json({ move });
 })
 
 app.post('/end', (request, response) => {
