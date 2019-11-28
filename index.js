@@ -113,7 +113,11 @@ app.post("/move", (request, response) => {
 
     snakes.forEach(snake => {
       snake.body.forEach((segment, index) => {
-        if (index !== snake.body.length - 1) {
+        const isTail = index === snake.body.length - 1;
+        const isFullHealth = snake.health === 100;
+        const nextTailSolid = isTail && isFullHealth;
+
+        if (!isTail || nextTailSolid) {
           grid[segment.y][segment.x] = 1;
         }
         if (index === 0 && snake.id !== you.id) {
