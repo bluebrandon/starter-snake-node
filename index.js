@@ -1,6 +1,7 @@
 const bodyParser = require("body-parser");
 const express = require("express");
 const logger = require("morgan");
+const PF = require("pathfinding");
 const app = express();
 const {
   fallbackHandler,
@@ -29,7 +30,7 @@ app.post("/start", (request, response) => {
   const data = {
     color: "#10b3cc",
     headType: "bendr",
-    tailType: "round-bum",
+    tailType: "round-bum"
   };
 
   return response.json(data);
@@ -40,20 +41,28 @@ app.post("/move", (request, response) => {
   const you = request.body.you;
   const board = request.body.board;
   const snakes = board.snakes;
+  const food = board.food;
 
   console.log("---------------------------------------------------");
   console.log({ board });
   console.log({ you });
   console.log({ snakes });
 
-  const moves = ["up", "down", "left", "right"].filter((direction) => {
-    // Get my head
-    let { x, y } = you.body[0];
+  const getHead = snake => {
+    return snake.body[0];
+  };
 
+  const applyDirection = (position, direction) => {
+    let { x, y } = position;
     if (direction === "left") x -= 1;
     if (direction === "right") x += 1;
     if (direction === "up") y -= 1;
     if (direction === "down") y += 1;
+    return { x, y };
+  };
+
+  const directionSafe = (position, direction) => {
+    const { x, y } = applyDirection(position, direction);
 
     const noHitSnakes = snakes.reduce(
       (res, snake) =>
@@ -69,15 +78,59 @@ app.post("/move", (request, response) => {
       x >= 0 && x < board.width && y >= 0 && y < board.height;
 
     return noHitSnakes && noOutOfBounds;
-  });
+  };
 
-  console.log({ moves: moves });
+  const availableMoves = position => {
+    return ["up", "down", "left", "right"].filter(direction => {
+      const newPosition = applyDirection(position, direction);
+      return directionSafe(newPosition);
+    });
+  };
 
-  const move = moves[Math.floor(Math.random() * moves.length)];
+  const directionTo = position => {
+    const head = getHead(you);
+    if (position.x > head.x) return "right";
+    if (position.x < head.x) return "left";
+    if (position.y > head.y) return "down";
+    if (position.y < head.y) return "up";
+  };
 
-  console.log(move);
+  const createGrid = () => {
+    const grid = Array(board.height)
+      .fill()
+      .map(() => Array(board.width).fill(0));
 
-  return response.json({ move });
+    snakes.forEach(snake => {
+      snake.body.forEach(segment => {
+        grid[segment.x][segment.y] = 1;
+      });
+    });
+
+    return new PF.Grid(grid);
+  };
+
+  if (food.length !== 0) {
+    const finder = new PF.AStarFinder();
+    const grid = createGrid();
+    const head = getHead(you);
+
+    const path = finder.findPath(head.x, head.y, food[0].x, food[0].y, grid);
+    if (path.length !== 0) {
+      const nextPosition = { x: path[1][0], y: path[1][1] };
+      const move = directionTo(nextPosition);
+      console.log({ head, nextPosition });
+      console.log(directionTo(nextPosition));
+      return response.json({ move });
+    }
+  } else {
+    const moves = availableMoves(getHead(you));
+    const move = moves[Math.floor(Math.random() * moves.length)];
+
+    console.log({ moves: moves });
+    console.log(move);
+
+    return response.json({ move });
+  }
 });
 
 app.post("/end", (request, response) => {
