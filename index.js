@@ -12,7 +12,7 @@ const {
 
 let turn = 0;
 let showDebug = false;
-const debug = (message) => showDebug && console.log(message);
+const debug = message => showDebug && console.log(message);
 
 // For deployment to Heroku, the port needs to be set using ENV, so
 // we check for the port number in process.env
@@ -55,12 +55,16 @@ app.post("/move", (request, response) => {
   debug({ food });
   turn += 1;
 
-  const getHead = snake => {
+  const getHead = (snake) => {
     return snake.body[0];
   };
 
+  const getTail = (snake) => {
+    return snake.body[snake.body.length - 1];
+  }
+
   const printGrid = grid => {
-    console.log(grid.reduce((str, row) => str + row.join(" ") + "\n", ""));
+    debug(grid.reduce((str, row) => str + row.join(" ") + "\n", ""));
   };
 
   const applyDirection = (position, direction) => {
@@ -102,48 +106,55 @@ app.post("/move", (request, response) => {
     if (position.y < head.y) return "up";
   };
 
-  const createGrid = () => {
+  const createMatrix = () => {
     const grid = Array(board.height)
       .fill()
       .map(() => Array(board.width).fill(0));
 
     snakes.forEach(snake => {
       snake.body.forEach((segment, index) => {
-        if (index !== segment.length - 1) {
+        if (index !== snake.body.length - 1) {
           grid[segment.y][segment.x] = 1;
         }
-        if (index === 0 && (snake.id !== you.id)) {
-          if(segment.x + 1 < board.width) grid[segment.y][segment.x + 1] = 1;
-          if(segment.y + 1 < board.height) grid[segment.y + 1][segment.x] = 1;
-          if(segment.x - 1 > 0) grid[segment.y][segment.x - 1] = 1
-          if(segment.y - 1 > 0) grid[segment.y - 1][segment.x] = 1;
+        if (index === 0 && snake.id !== you.id) {
+          if (segment.x + 1 < board.width) grid[segment.y][segment.x + 1] = 1;
+          if (segment.y + 1 < board.height) grid[segment.y + 1][segment.x] = 1;
+          if (segment.x - 1 > 0) grid[segment.y][segment.x - 1] = 1;
+          if (segment.y - 1 > 0) grid[segment.y - 1][segment.x] = 1;
         }
       });
     });
 
     // printGrid(grid);
 
-    return new PF.Grid(grid);
+    return grid;
   };
 
-  const paths = food.map(food => {
-    const finder = new PF.AStarFinder();
-    const grid = createGrid();
-    const head = getHead(you);
-    return finder.findPath(head.x, head.y, food.x, food.y, grid);
-  }).filter((path) => path.length !== 0);
+  const matrix = createMatrix();
 
-  
-  const shortestPath = paths.reduce(
+  const getPath = (head, target) => {
+    const finder = new PF.AStarFinder();
+    const grid = new PF.Grid(matrix);
+    return finder.findPath(head.x, head.y, target.x, target.y, grid);
+  };
+
+  debug({ head: getHead(you), tail: getTail(you)});
+  const tailPath = getPath(getHead(you), getTail(you)).filter(path => path.length !== 0);
+
+  debug({ tailPath })
+
+  const foodPaths = food.map(food => getPath(getHead(you), food)).filter(path => path.length !== 0);
+
+  const closestFoodPath = foodPaths.reduce(
     (res, path) => (res && path.length > res.length ? res : path),
     null
   );
 
-  debug({ paths });
-  debug({ shortestPath });
+  debug({ foodPaths });
+  debug({ closestFoodPath });
 
-  if (shortestPath) {
-    const nextPosition = { x: shortestPath[1][0], y: shortestPath[1][1] };
+  if (closestFoodPath) {
+    const nextPosition = { x: closestFoodPath[1][0], y: closestFoodPath[1][1] };
     const move = directionTo(nextPosition);
     debug("directed");
     debug(move);
