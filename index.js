@@ -44,7 +44,7 @@ app.post("/move", (request, response) => {
   const board = request.body.board;
   const snakes = board.snakes;
   const food = board.food;
-  
+
   console.log("---------------------------------------------------");
   console.log(`turn: ${turn}`);
   console.log({ board });
@@ -57,8 +57,8 @@ app.post("/move", (request, response) => {
     return snake.body[0];
   };
 
-  const printGrid = (grid) => {
-    grid.forEach((row) => console.log(row.join(' ')));
+  const printGrid = grid => {
+    console.log(grid.reduce((str, row) => str + row.join(" ") + "\n", ""));
   };
 
   const applyDirection = (position, direction) => {
@@ -76,15 +76,11 @@ app.post("/move", (request, response) => {
     const noHitSnakes = snakes.reduce(
       (res, snake) =>
         res &&
-        snake.body.reduce(
-          (res, segment) => res && (segment.x !== x || segment.y !== y),
-          true
-        ),
+        snake.body.reduce((res, segment) => res && (segment.x !== x || segment.y !== y), true),
       true
     );
 
-    const noOutOfBounds =
-      x >= 0 && x < board.width && y >= 0 && y < board.height;
+    const noOutOfBounds = x >= 0 && x < board.width && y >= 0 && y < board.height;
 
     return noHitSnakes && noOutOfBounds;
   };
@@ -110,55 +106,52 @@ app.post("/move", (request, response) => {
       .map(() => Array(board.width).fill(0));
 
     snakes.forEach(snake => {
-      snake.body.forEach(segment => {
-        grid[segment.y][segment.x] = 1;
+      snake.body.forEach((segment, index) => {
+        if (index !== segment.length - 1) {
+          grid[segment.y][segment.x] = 1;
+        }
       });
     });
 
-    printGrid(grid);
+    // printGrid(grid);
 
     return new PF.Grid(grid);
   };
 
-  if (food.length !== 0) {
-    const paths = food.map(food => {
-      const finder = new PF.AStarFinder();
-      const grid = createGrid();
-      const head = getHead(you);
-      return finder.findPath(head.x, head.y, food.x, food.y, grid);
-    });
-    console.log('paths');
-    console.log(paths);
+  const paths = food.map(food => {
+    const finder = new PF.AStarFinder();
+    const grid = createGrid();
+    const head = getHead(you);
+    return finder.findPath(head.x, head.y, food.x, food.y, grid);
+  }).filter((path) => path.length !== 0);
 
-    const shortestPath = paths.reduce(
-      (res, path) => (res && path.length === 0 && path.length > res.length ? res : path),
-      null
-    );
+  
+  const shortestPath = paths.reduce(
+    (res, path) => (res && path.length > res.length ? res : path),
+    null
+  );
 
-    console.log('shortestPath');
-    console.log(shortestPath);
+  console.log({ paths });
+  console.log({ shortestPath });
 
-    if (shortestPath) {
-      const nextPosition = { x: shortestPath[1][0], y: shortestPath[1][1] };
-      console.log({ nextPosition });
-      const move = directionTo(nextPosition);
-      console.log(move);
-
-      return response.json({ move });
-    }
+  if (shortestPath) {
+    const nextPosition = { x: shortestPath[1][0], y: shortestPath[1][1] };
+    const move = directionTo(nextPosition);
+    console.log("directed");
+    console.log(move);
+    return response.json({ move });
   } else {
     const moves = availableMoves(getHead(you));
     const move = moves[Math.floor(Math.random() * moves.length)];
-
-    console.log({ moves: moves });
+    console.log("random");
     console.log(move);
-
     return response.json({ move });
   }
 });
 
 app.post("/end", (request, response) => {
   // NOTE: Any cleanup when a game is complete.
+  turn = 0;
   return response.json({});
 });
 
