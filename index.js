@@ -27,7 +27,9 @@ app.post("/start", (request, response) => {
 
   // Response data
   const data = {
-    color: "#0000FF"
+    color: "#10b3cc",
+    headType: "bendr",
+    tailType: "round-bum",
   };
 
   return response.json(data);
@@ -44,14 +46,14 @@ app.post("/move", (request, response) => {
   console.log({ you });
   console.log({ snakes });
 
-  const moves = ["up", "down", "left", "right"].filter(dir => {
+  const moves = ["up", "down", "left", "right"].filter((direction) => {
     // Get my head
     let { x, y } = you.body[0];
 
-    if (dir === "left") x -= 1;
-    if (dir === "right") x += 1;
-    if (dir === "up") y -= 1;
-    if (dir === "down") y += 1;
+    if (direction === "left") x -= 1;
+    if (direction === "right") x += 1;
+    if (direction === "up") y -= 1;
+    if (direction === "down") y += 1;
 
     const noHitSnakes = snakes.reduce(
       (res, snake) =>
