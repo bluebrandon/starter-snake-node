@@ -11,6 +11,8 @@ const {
 } = require("./handlers.js");
 
 let turn = 0;
+let showDebug = false;
+const debug = (message) => showDebug && console.log(message);
 
 // For deployment to Heroku, the port needs to be set using ENV, so
 // we check for the port number in process.env
@@ -45,12 +47,12 @@ app.post("/move", (request, response) => {
   const snakes = board.snakes;
   const food = board.food;
 
-  console.log("---------------------------------------------------");
-  console.log(`turn: ${turn}`);
-  console.log({ board });
-  console.log({ you });
-  console.log({ snakes });
-  console.log({ food });
+  debug("---------------------------------------------------");
+  debug(`turn: ${turn}`);
+  debug({ board });
+  debug({ you });
+  debug({ snakes });
+  debug({ food });
   turn += 1;
 
   const getHead = snake => {
@@ -110,6 +112,12 @@ app.post("/move", (request, response) => {
         if (index !== segment.length - 1) {
           grid[segment.y][segment.x] = 1;
         }
+        if (index === 0 && (snake.id !== you.id)) {
+          if(segment.x + 1 < board.width) grid[segment.y][segment.x + 1] = 1;
+          if(segment.y + 1 < board.height) grid[segment.y + 1][segment.x] = 1;
+          if(segment.x - 1 > 0) grid[segment.y][segment.x - 1] = 1
+          if(segment.y - 1 > 0) grid[segment.y - 1][segment.x] = 1;
+        }
       });
     });
 
@@ -131,20 +139,20 @@ app.post("/move", (request, response) => {
     null
   );
 
-  console.log({ paths });
-  console.log({ shortestPath });
+  debug({ paths });
+  debug({ shortestPath });
 
   if (shortestPath) {
     const nextPosition = { x: shortestPath[1][0], y: shortestPath[1][1] };
     const move = directionTo(nextPosition);
-    console.log("directed");
-    console.log(move);
+    debug("directed");
+    debug(move);
     return response.json({ move });
   } else {
     const moves = availableMoves(getHead(you));
     const move = moves[Math.floor(Math.random() * moves.length)];
-    console.log("random");
-    console.log(move);
+    debug("random");
+    debug(move);
     return response.json({ move });
   }
 });
