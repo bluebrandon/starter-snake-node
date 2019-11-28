@@ -10,6 +10,8 @@ const {
   poweredByHandler
 } = require("./handlers.js");
 
+let turn = 0;
+
 // For deployment to Heroku, the port needs to be set using ENV, so
 // we check for the port number in process.env
 app.set("port", process.env.PORT || 9001);
@@ -42,14 +44,21 @@ app.post("/move", (request, response) => {
   const board = request.body.board;
   const snakes = board.snakes;
   const food = board.food;
-
+  
   console.log("---------------------------------------------------");
+  console.log(`turn: ${turn}`);
   console.log({ board });
   console.log({ you });
   console.log({ snakes });
+  console.log({ food });
+  turn += 1;
 
   const getHead = snake => {
     return snake.body[0];
+  };
+
+  const printGrid = (grid) => {
+    grid.forEach((row) => console.log(row.join(' ')));
   };
 
   const applyDirection = (position, direction) => {
@@ -102,24 +111,39 @@ app.post("/move", (request, response) => {
 
     snakes.forEach(snake => {
       snake.body.forEach(segment => {
-        grid[segment.x][segment.y] = 1;
+        grid[segment.y][segment.x] = 1;
       });
     });
+
+    printGrid(grid);
 
     return new PF.Grid(grid);
   };
 
   if (food.length !== 0) {
-    const finder = new PF.AStarFinder();
-    const grid = createGrid();
-    const head = getHead(you);
+    const paths = food.map(food => {
+      const finder = new PF.AStarFinder();
+      const grid = createGrid();
+      const head = getHead(you);
+      return finder.findPath(head.x, head.y, food.x, food.y, grid);
+    });
+    console.log('paths');
+    console.log(paths);
 
-    const path = finder.findPath(head.x, head.y, food[0].x, food[0].y, grid);
-    if (path.length !== 0) {
-      const nextPosition = { x: path[1][0], y: path[1][1] };
+    const shortestPath = paths.reduce(
+      (res, path) => (res && path.length === 0 && path.length > res.length ? res : path),
+      null
+    );
+
+    console.log('shortestPath');
+    console.log(shortestPath);
+
+    if (shortestPath) {
+      const nextPosition = { x: shortestPath[1][0], y: shortestPath[1][1] };
+      console.log({ nextPosition });
       const move = directionTo(nextPosition);
-      console.log({ head, nextPosition });
-      console.log(directionTo(nextPosition));
+      console.log(move);
+
       return response.json({ move });
     }
   } else {
