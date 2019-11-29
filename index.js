@@ -13,6 +13,9 @@ const {
 let turn = 0;
 let showDebug = false;
 const debug = message => showDebug && console.log(message);
+const printGrid = grid => {
+  debug(grid.reduce((str, row) => str + row.join(" ") + "\n", ""));
+};
 
 // For deployment to Heroku, the port needs to be set using ENV, so
 // we check for the port number in process.env
@@ -59,10 +62,6 @@ app.post("/move", (request, response) => {
     return snake.body[0];
   };
 
-  const printGrid = grid => {
-    debug(grid.reduce((str, row) => str + row.join(" ") + "\n", ""));
-  };
-
   const applyDirection = (position, direction) => {
     let { x, y } = position;
     if (direction === "left") x -= 1;
@@ -102,7 +101,7 @@ app.post("/move", (request, response) => {
     if (position.y < head.y) return "up";
   };
 
-  const createMatrix = () => {
+  const createFoodMatrix = () => {
     const grid = Array(board.height)
       .fill()
       .map(() => Array(board.width).fill(0));
@@ -125,12 +124,32 @@ app.post("/move", (request, response) => {
       });
     });
 
-    // printGrid(grid);
+    return grid;
+  };
+
+  const createKillMatrix = () => {
+    const grid = Array(board.height)
+      .fill()
+      .map(() => Array(board.width).fill(0));
+
+    snakes.forEach(snake => {
+      snake.body.forEach((segment, index) => {
+        const isHead = index === 0;
+
+        if (!isHead) {
+          grid[segment.y][segment.x] = 1;
+        }
+      });
+    });
 
     return grid;
   };
 
-  const matrix = createMatrix();
+  const foodMatrix = createFoodMatrix();
+  const killMatrix = createKillMatrix();
+
+  // printGrid(killMatrix);
+  // printGrid(foodMatrix);
 
   const rankMove = direction => {
     if (direction) {
@@ -150,20 +169,33 @@ app.post("/move", (request, response) => {
     return moves.filter(move => rankMove(move) === maxRank);
   };
 
-  const getPath = (head, target) => {
+  const getPath = (head, target, matrix) => {
     const finder = new PF.AStarFinder();
     const grid = new PF.Grid(matrix);
     return finder.findPath(head.x, head.y, target.x, target.y, grid);
   };
 
-  const foodPaths = food.map(food => getPath(getHead(you), food)).filter(path => path.length !== 0);
-
+  const foodPaths = food.map(food => getPath(getHead(you), food, foodMatrix)).filter(path => path.length !== 0);
   const closestFoodPath = foodPaths.reduce(
     (res, path) => (res && path.length > res.length ? res : path),
     null
   );
 
-  if (closestFoodPath && you.health < 80) {
+  const weakSnakes = snakes.filter((snake) => snake.body.length < you.body.length);
+  const weakHeads = weakSnakes.map((snake) => getHead(snake));
+  const weakHeadPaths = weakHeads.map(weakHead => getPath(getHead(you), weakHead, killMatrix));
+  const closestWeakHeadPath = weakHeadPaths.reduce(
+    (res, path) => (res && path.length > res.length ? res : path),
+    null
+  );
+
+  if (closestWeakHeadPath) {
+    const nextPosition = { x: closestWeakHeadPath[1][0], y: closestWeakHeadPath[1][1] };
+    const move = directionTo(nextPosition);
+    debug("kill");
+    debug(move);
+    return response.json({ move });
+  } else if (closestFoodPath) {
     const nextPosition = { x: closestFoodPath[1][0], y: closestFoodPath[1][1] };
     const move = directionTo(nextPosition);
     debug("directed");
