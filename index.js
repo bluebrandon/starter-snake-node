@@ -132,14 +132,33 @@ app.post("/move", (request, response) => {
       .fill()
       .map(() => Array(board.width).fill(0));
 
+    // Go after weak snakes
     snakes.forEach(snake => {
-      snake.body.forEach((segment, index) => {
-        const isHead = index === 0;
+      if (snake.body.length < you.body.length) {
+        snake.body.forEach((segment, index) => {
+          const isHead = index === 0;
 
-        if (!isHead) {
-          grid[segment.y][segment.x] = 1;
-        }
-      });
+          if (!isHead) {
+            grid[segment.y][segment.x] = 1;
+          }
+        });
+      } else {
+        snake.body.forEach((segment, index) => {
+          const isTail = index === snake.body.length - 1;
+          const isFullHealth = snake.health === 100;
+          const nextTailSolid = isTail && isFullHealth;
+  
+          if (!isTail || nextTailSolid) {
+            grid[segment.y][segment.x] = 1;
+          }
+          if (index === 0 && snake.id !== you.id) {
+            if (segment.x + 1 < board.width) grid[segment.y][segment.x + 1] = 1;
+            if (segment.y + 1 < board.height) grid[segment.y + 1][segment.x] = 1;
+            if (segment.x - 1 > 0) grid[segment.y][segment.x - 1] = 1;
+            if (segment.y - 1 > 0) grid[segment.y - 1][segment.x] = 1;
+          }
+        });
+      }
     });
 
     return grid;
