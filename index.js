@@ -50,18 +50,18 @@ app.post("/move", (request, response) => {
   debug("---------------------------------------------------");
   debug(`turn: ${turn}`);
   debug({ board });
-  debug({ you });
-  debug({ snakes });
-  debug({ food });
+  // debug({ you });
+  // debug({ snakes });
+  // debug({ food });
   turn += 1;
 
-  const getHead = (snake) => {
+  const getHead = snake => {
     return snake.body[0];
   };
 
-  const getTail = (snake) => {
+  const getTail = snake => {
     return snake.body[snake.body.length - 1];
-  }
+  };
 
   const printGrid = grid => {
     debug(grid.reduce((str, row) => str + row.join(" ") + "\n", ""));
@@ -136,16 +136,29 @@ app.post("/move", (request, response) => {
 
   const matrix = createMatrix();
 
+  const rankMove = direction => {
+    if (direction) {
+      const position = applyDirection(getHead(you), direction);
+      return availableMoves(position).length;
+    } else {
+      return 0;
+    }
+  };
+
+  const filterBestMoves = moves => {
+    const maxRank = moves.reduce((max, move) => {
+      const newRank = rankMove(move);
+      return newRank > max ? newRank : max;
+    }, 0);
+
+    return moves.filter(move => rankMove(move) === maxRank);
+  };
+
   const getPath = (head, target) => {
     const finder = new PF.AStarFinder();
     const grid = new PF.Grid(matrix);
     return finder.findPath(head.x, head.y, target.x, target.y, grid);
   };
-
-  debug({ head: getHead(you), tail: getTail(you)});
-  const tailPath = getPath(getHead(you), getTail(you)).filter(path => path.length !== 0);
-
-  debug({ tailPath })
 
   const foodPaths = food.map(food => getPath(getHead(you), food)).filter(path => path.length !== 0);
 
@@ -157,7 +170,7 @@ app.post("/move", (request, response) => {
   debug({ foodPaths });
   debug({ closestFoodPath });
 
-  if (closestFoodPath) {
+  if (closestFoodPath && you.health < 60) {
     const nextPosition = { x: closestFoodPath[1][0], y: closestFoodPath[1][1] };
     const move = directionTo(nextPosition);
     debug("directed");
@@ -165,7 +178,11 @@ app.post("/move", (request, response) => {
     return response.json({ move });
   } else {
     const moves = availableMoves(getHead(you));
-    const move = moves[Math.floor(Math.random() * moves.length)];
+    const bestMoves = filterBestMoves(moves);
+
+    // const move = moves.reduce((final, move) => rankMove(move) > rankMove(final) ? move : final, null);
+    // const move = moves[Math.floor(Math.random() * moves.length)];
+    const move = bestMoves[Math.floor(Math.random() * bestMoves.length)];
     debug("random");
     debug(move);
     return response.json({ move });
