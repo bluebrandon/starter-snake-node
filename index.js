@@ -59,10 +59,6 @@ app.post("/move", (request, response) => {
     return snake.body[0];
   };
 
-  const getTail = snake => {
-    return snake.body[snake.body.length - 1];
-  };
-
   const printGrid = grid => {
     debug(grid.reduce((str, row) => str + row.join(" ") + "\n", ""));
   };
@@ -167,10 +163,7 @@ app.post("/move", (request, response) => {
     null
   );
 
-  debug({ foodPaths });
-  debug({ closestFoodPath });
-
-  if (closestFoodPath && you.health < 60) {
+  if (closestFoodPath && you.health < 80) {
     const nextPosition = { x: closestFoodPath[1][0], y: closestFoodPath[1][1] };
     const move = directionTo(nextPosition);
     debug("directed");
