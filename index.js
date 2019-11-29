@@ -174,45 +174,11 @@ app.post("/move", (request, response) => {
     }
   };
 
-  const isKillerHead = position => {
-    let killerHead = false;
-    snakes.reduce(snake => {
-      if (snake.body.length > you.body.length) {
-        const head = getHead(snake);
-        if (head.x === position.x && head.y === position.y) {
-          killerHead = true;
-        }
-      }
-    });
-    return killerHead;
-  };
-
-  const noAdjacentKillerHead = position => {
-    return availableMoves(position).reduce((res, move) => {
-      const adjacentPosition = applyDirection(getHead(you), move);
-      return res && !isKillerHead(adjacentPosition);
-    }, true);
-  };
-
   const filterBestMoves = moves => {
     const maxRank = moves.reduce((max, move) => {
       const newRank = rankMove(move);
       return newRank > max ? newRank : max;
     }, 0);
-
-    // If there are options, avoid going to spaces beside killer heads
-    // if (moves.length > 1) {
-    //   const saferMoves = moves.filter(move => {
-    //     const position = applyDirection(getHead(you), move);
-    //     const safePosition = noAdjacentKillerHead(position);
-    //     if (!safePosition) debug("killer at random move!");
-    //     return safePosition;
-    //   });
-    //   if (saferMoves.length > 0) {
-    //     debug("safer moves!");
-    //     moves = saferMoves;
-    //   }
-    // }
 
     return moves.filter(move => rankMove(move) === maxRank);
   };
@@ -235,7 +201,7 @@ app.post("/move", (request, response) => {
     null
   );
 
-  if (closestWeakHeadPath) {
+  if (closestWeakHeadPath && closestWeakHeadPath.length < 4) {
     const nextPosition = { x: closestWeakHeadPath[1][0], y: closestWeakHeadPath[1][1] };
     if (hasAvailableNextMoves(nextPosition)) {
       const move = directionTo(nextPosition);
