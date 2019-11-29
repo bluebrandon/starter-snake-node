@@ -147,7 +147,7 @@ app.post("/move", (request, response) => {
           const isTail = index === snake.body.length - 1;
           const isFullHealth = snake.health === 100;
           const nextTailSolid = isTail && isFullHealth;
-  
+
           if (!isTail || nextTailSolid) {
             grid[segment.y][segment.x] = 1;
           }
@@ -167,16 +167,42 @@ app.post("/move", (request, response) => {
   const foodMatrix = createFoodMatrix();
   const killMatrix = createKillMatrix();
 
-  // printGrid(killMatrix);
-  // printGrid(foodMatrix);
+  printGrid(killMatrix);
+  printGrid(foodMatrix);
 
-  const rankMove = direction => {
-    if (direction) {
-      const position = applyDirection(getHead(you), direction);
-      return availableMoves(position).length;
+  const hasAvailableNextMoves = position => {
+    return availableMoves(position).length;
+  };
+
+  const rankMove = move => {
+    if (move) {
+      const position = applyDirection(getHead(you), move);
+      return hasAvailableNextMoves(position);
     } else {
       return 0;
     }
+  };
+
+  const isKillerHead = position => {
+    let killerHead = false;
+    snakes.reduce(snake => {
+      if (snake.body.length > you.body.length) {
+        snake.body.forEach((segment, index) => {
+          const isHead = index === 0;
+          if (isHead && segment.x === position.x && segment.y === position.y) {
+            killerHead = true;
+          }
+        });
+      }
+    });
+    return killerHead;
+  };
+
+  const noAdjacentKillerHead = position => {
+    return availableMoves(position).reduce((res, move) => {
+      const adjacentPosition = applyDirection(getHead(you), move);
+      return res && !isKillerHead(adjacentPosition);
+    }, true);
   };
 
   const filterBestMoves = moves => {
@@ -184,6 +210,20 @@ app.post("/move", (request, response) => {
       const newRank = rankMove(move);
       return newRank > max ? newRank : max;
     }, 0);
+
+    // If there are options, avoid going to spaces beside killer heads
+    if (moves.length > 1) {
+      const saferMoves = moves.filter(move => {
+        const position = applyDirection(getHead(you), move);
+        const safePosition = noAdjacentKillerHead(position);
+        if (!safePosition) debug("killer at random move!");
+        return safePosition;
+      });
+      if (saferMoves.length > 0) {
+        debug("safer moves!");
+        moves = saferMoves;
+      }
+    }
 
     return moves.filter(move => rankMove(move) === maxRank);
   };
@@ -194,14 +234,16 @@ app.post("/move", (request, response) => {
     return finder.findPath(head.x, head.y, target.x, target.y, grid);
   };
 
-  const foodPaths = food.map(food => getPath(getHead(you), food, foodMatrix)).filter(path => path.length !== 0);
+  const foodPaths = food
+    .map(food => getPath(getHead(you), food, foodMatrix))
+    .filter(path => path.length !== 0);
   const closestFoodPath = foodPaths.reduce(
     (res, path) => (res && path.length > res.length ? res : path),
     null
   );
 
-  const weakSnakes = snakes.filter((snake) => snake.body.length < you.body.length);
-  const weakHeads = weakSnakes.map((snake) => getHead(snake));
+  const weakSnakes = snakes.filter(snake => snake.body.length < you.body.length);
+  const weakHeads = weakSnakes.map(snake => getHead(snake));
   const weakHeadPaths = weakHeads.map(weakHead => getPath(getHead(you), weakHead, killMatrix));
   const closestWeakHeadPath = weakHeadPaths.reduce(
     (res, path) => (res && path.length > res.length ? res : path),
@@ -210,32 +252,39 @@ app.post("/move", (request, response) => {
 
   if (closestWeakHeadPath) {
     const nextPosition = { x: closestWeakHeadPath[1][0], y: closestWeakHeadPath[1][1] };
-    const move = directionTo(nextPosition);
-    debug("kill");
-    debug(move);
-    return response.json({ move });
-  } else if (closestFoodPath) {
-    const nextPosition = { x: closestFoodPath[1][0], y: closestFoodPath[1][1] };
-    const move = directionTo(nextPosition);
-    debug("directed");
-    debug(move);
-    return response.json({ move });
-  } else {
-    const moves = availableMoves(getHead(you));
-    const bestMoves = filterBestMoves(moves);
-
-    // const move = moves.reduce((final, move) => rankMove(move) > rankMove(final) ? move : final, null);
-    // const move = moves[Math.floor(Math.random() * moves.length)];
-    const move = bestMoves[Math.floor(Math.random() * bestMoves.length)];
-    debug("random");
-    debug(move);
-    return response.json({ move });
+    if (noAdjacentKillerHead(nextPosition) && hasAvailableNextMoves(nextPosition)) {
+      const move = directionTo(nextPosition);
+      debug("kill");
+      debug(move);
+      return response.json({ move });
+    }
+    debug("killer is bad move!");
   }
+  if (closestFoodPath) {
+    const nextPosition = { x: closestFoodPath[1][0], y: closestFoodPath[1][1] };
+    if (noAdjacentKillerHead(nextPosition) && hasAvailableNextMoves(nextPosition)) {
+      const move = directionTo(nextPosition);
+      debug("food");
+      debug(move);
+      return response.json({ move });
+    }
+    debug("food is bad move!");
+  }
+
+  // Otherwise do your best
+  const moves = availableMoves(getHead(you));
+  const bestMoves = filterBestMoves(moves);
+
+  const move = bestMoves[Math.floor(Math.random() * bestMoves.length)];
+  debug("random");
+  debug(move);
+  return response.json({ move });
 });
 
 app.post("/end", (request, response) => {
   // NOTE: Any cleanup when a game is complete.
   turn = 0;
+  debug("game over!");
   return response.json({});
 });
 
