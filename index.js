@@ -53,9 +53,6 @@ app.post("/move", (request, response) => {
   debug("---------------------------------------------------");
   debug(`turn: ${turn}`);
   debug({ board });
-  // debug({ you });
-  // debug({ snakes });
-  // debug({ food });
   turn += 1;
 
   const getHead = snake => {
@@ -164,12 +161,6 @@ app.post("/move", (request, response) => {
     return grid;
   };
 
-  const foodMatrix = createFoodMatrix();
-  const killMatrix = createKillMatrix();
-
-  printGrid(killMatrix);
-  printGrid(foodMatrix);
-
   const hasAvailableNextMoves = position => {
     return availableMoves(position).length;
   };
@@ -187,12 +178,10 @@ app.post("/move", (request, response) => {
     let killerHead = false;
     snakes.reduce(snake => {
       if (snake.body.length > you.body.length) {
-        snake.body.forEach((segment, index) => {
-          const isHead = index === 0;
-          if (isHead && segment.x === position.x && segment.y === position.y) {
-            killerHead = true;
-          }
-        });
+        const head = getHead(snake);
+        if (head.x === position.x && head.y === position.y) {
+          killerHead = true;
+        }
       }
     });
     return killerHead;
@@ -212,18 +201,18 @@ app.post("/move", (request, response) => {
     }, 0);
 
     // If there are options, avoid going to spaces beside killer heads
-    if (moves.length > 1) {
-      const saferMoves = moves.filter(move => {
-        const position = applyDirection(getHead(you), move);
-        const safePosition = noAdjacentKillerHead(position);
-        if (!safePosition) debug("killer at random move!");
-        return safePosition;
-      });
-      if (saferMoves.length > 0) {
-        debug("safer moves!");
-        moves = saferMoves;
-      }
-    }
+    // if (moves.length > 1) {
+    //   const saferMoves = moves.filter(move => {
+    //     const position = applyDirection(getHead(you), move);
+    //     const safePosition = noAdjacentKillerHead(position);
+    //     if (!safePosition) debug("killer at random move!");
+    //     return safePosition;
+    //   });
+    //   if (saferMoves.length > 0) {
+    //     debug("safer moves!");
+    //     moves = saferMoves;
+    //   }
+    // }
 
     return moves.filter(move => rankMove(move) === maxRank);
   };
@@ -234,13 +223,9 @@ app.post("/move", (request, response) => {
     return finder.findPath(head.x, head.y, target.x, target.y, grid);
   };
 
-  const foodPaths = food
-    .map(food => getPath(getHead(you), food, foodMatrix))
-    .filter(path => path.length !== 0);
-  const closestFoodPath = foodPaths.reduce(
-    (res, path) => (res && path.length > res.length ? res : path),
-    null
-  );
+  // KILLING!
+  const killMatrix = createKillMatrix();
+  printGrid(killMatrix);
 
   const weakSnakes = snakes.filter(snake => snake.body.length < you.body.length);
   const weakHeads = weakSnakes.map(snake => getHead(snake));
@@ -252,7 +237,7 @@ app.post("/move", (request, response) => {
 
   if (closestWeakHeadPath) {
     const nextPosition = { x: closestWeakHeadPath[1][0], y: closestWeakHeadPath[1][1] };
-    if (noAdjacentKillerHead(nextPosition) && hasAvailableNextMoves(nextPosition)) {
+    if (hasAvailableNextMoves(nextPosition)) {
       const move = directionTo(nextPosition);
       debug("kill");
       debug(move);
@@ -260,9 +245,23 @@ app.post("/move", (request, response) => {
     }
     debug("killer is bad move!");
   }
+
+
+  // FOOD!
+  const foodMatrix = createFoodMatrix();
+  printGrid(foodMatrix);
+
+  const foodPaths = food
+    .map(food => getPath(getHead(you), food, foodMatrix))
+    .filter(path => path.length !== 0);
+  const closestFoodPath = foodPaths.reduce(
+    (res, path) => (res && path.length > res.length ? res : path),
+    null
+  );
+
   if (closestFoodPath) {
     const nextPosition = { x: closestFoodPath[1][0], y: closestFoodPath[1][1] };
-    if (noAdjacentKillerHead(nextPosition) && hasAvailableNextMoves(nextPosition)) {
+    if (hasAvailableNextMoves(nextPosition)) {
       const move = directionTo(nextPosition);
       debug("food");
       debug(move);
@@ -271,7 +270,7 @@ app.post("/move", (request, response) => {
     debug("food is bad move!");
   }
 
-  // Otherwise do your best
+  // DO YOUR BEST!
   const moves = availableMoves(getHead(you));
   const bestMoves = filterBestMoves(moves);
 
