@@ -201,7 +201,7 @@ app.post("/move", (request, response) => {
     null
   );
 
-  if (closestWeakHeadPath && closestWeakHeadPath.length < 4) {
+  if (closestWeakHeadPath && closestWeakHeadPath.length < 6) {
     const nextPosition = { x: closestWeakHeadPath[1][0], y: closestWeakHeadPath[1][1] };
     if (hasAvailableNextMoves(nextPosition)) {
       const move = directionTo(nextPosition);
@@ -225,7 +225,7 @@ app.post("/move", (request, response) => {
     null
   );
 
-  if (closestFoodPath) {
+  if (closestFoodPath && you.health < 80) {
     const nextPosition = { x: closestFoodPath[1][0], y: closestFoodPath[1][1] };
     if (hasAvailableNextMoves(nextPosition)) {
       const move = directionTo(nextPosition);
