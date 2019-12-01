@@ -58,19 +58,20 @@ class DirectionManager {
   isKillerHead(position) {
     let killerHead = false;
     this.snakes.forEach((snake) => {
-      if (snake.body.length > this.you.body.length) {
+      if (snake.body.length >= this.you.body.length && snake.id !== this.you.id) {
         const { x, y } = snake.body[0];
         if (x === position.x && y === position.y) {
           killerHead = true;
         }
       }
     });
+    debug({ killerHead });
     return killerHead;
   }
 
-  noAdjacentKillerHead(moves) {
-    return moves.reduce((res, direction) => {
-      const adjacentPosition = this.getPosition(this.head, direction);
+  noAdjacentKillerHead(position) {
+    return ['up', 'down', 'left', 'right'].reduce((res, direction) => {
+      const adjacentPosition = this.getPosition(position, direction);
       return res && !this.isKillerHead(adjacentPosition);
     }, true);
   }
@@ -85,7 +86,8 @@ class DirectionManager {
     // If there are options, avoid going to spaces beside killer heads
     if (moves.length > 1) {
       const saferMoves = moves.filter((move) => {
-        return this.noAdjacentKillerHead([move]);
+        const position = this.getPosition(this.head, move);
+        return this.noAdjacentKillerHead(position);
       });
       if (saferMoves.length > 0) {
         debug('safer moves!');
@@ -232,9 +234,10 @@ const getMove = (you, board) => {
 
     if (closestWeakHeadPath) {
       const nextPosition = pathfinding.getNextPosition(closestWeakHeadPath);
-      const nextSafeMoves = directionManager.getSafeMoves(nextPosition);
-      const noAdjacentKiller = directionManager.noAdjacentKillerHead(nextSafeMoves);
-      const movesAvailable = nextSafeMoves.length !== 0;
+      const movesAvailable = directionManager.getSafeMoves(nextPosition).length !== 0;
+      const noAdjacentKiller = directionManager.noAdjacentKillerHead(nextPosition);
+
+      debug({ noAdjacentKiller });
 
       if (movesAvailable && noAdjacentKiller) {
         const move = directionManager.directionTo(nextPosition);
@@ -246,14 +249,17 @@ const getMove = (you, board) => {
   }
 
   // FOOD!
-  if (board.food.length !== 0) {
+  const strongSnakes = board.snakes.filter((snake) => snake.body.length >= you.body.length);
+
+  if (board.food.length !== 0 && strongSnakes.length !== 0) {
     const closestFoodPath = pathfinding.getShortestFoodPath(board.food);
 
     if (closestFoodPath) {
       const nextPosition = pathfinding.getNextPosition(closestFoodPath);
-      const nextSafeMoves = directionManager.getSafeMoves(nextPosition);
-      const noAdjacentKiller = directionManager.noAdjacentKillerHead(nextSafeMoves);
-      const movesAvailable = nextSafeMoves.length !== 0;
+      const movesAvailable = directionManager.getSafeMoves(nextPosition).length !== 0;
+      const noAdjacentKiller = directionManager.noAdjacentKillerHead(nextPosition);
+
+      debug({ noAdjacentKiller });
 
       if (movesAvailable && noAdjacentKiller) {
         const move = directionManager.directionTo(nextPosition);
