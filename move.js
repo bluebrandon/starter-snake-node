@@ -200,7 +200,7 @@ const getMove = (you, board) => {
     if (closestWeakHeadPath) {
       const nextPosition = pathfinding.getNextPosition(closestWeakHeadPath);
 
-      if (directionManager.getSafeMoves(nextPosition)) {
+      if (directionManager.getSafeMoves(nextPosition.length !== 0)) {
         const move = directionManager.directionTo(nextPosition);
         debug('kill');
         debug(move);
@@ -215,7 +215,7 @@ const getMove = (you, board) => {
   if (closestFoodPath) {
     const nextPosition = pathfinding.getNextPosition(closestFoodPath);
 
-    if (directionManager.getSafeMoves(nextPosition)) {
+    if (directionManager.getSafeMoves(nextPosition).length !== 0) {
       const move = directionManager.directionTo(nextPosition);
       debug('food');
       debug(move);
