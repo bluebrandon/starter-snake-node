@@ -47,7 +47,7 @@ class DirectionManager {
 
   rankDirection(direction) {
     if (direction) {
-      const position = this.getPosition(this.head, move);
+      const position = this.getPosition(this.head, direction);
       return this.getSafeMoves(position).length;
     } else {
       return 0;
@@ -193,7 +193,7 @@ const getMove = (you, board) => {
   // KILLING!
   const weakSnakes = board.snakes.filter((snake) => snake.body.length < you.body.length);
 
-  if (weakSnakes.length !== 0) {
+  if (weakSnakes.length !== 0 && you.health > 40) {
     const weakHeads = weakSnakes.map((snake) => snake.body[0]);
     const closestWeakHeadPath = pathfinding.getShortestKillPath(weakHeads);
 
