@@ -8,6 +8,7 @@ const printGrid = (grid) => {
 
 class DirectionManager {
   update(you, board) {
+    this.you = you;
     this.head = you.body[0];
     this.board = board;
     this.snakes = board.snakes;
@@ -54,12 +55,44 @@ class DirectionManager {
     }
   }
 
+  isKillerHead(position) {
+    let killerHead = false;
+    this.snakes.forEach((snake) => {
+      if (snake.body.length > this.you.body.length) {
+        const { x, y } = snake.body[0];
+        if (x === position.x && y === position.y) {
+          killerHead = true;
+        }
+      }
+    });
+    return killerHead;
+  }
+
+  noAdjacentKillerHead(moves) {
+    return moves.reduce((res, direction) => {
+      const adjacentPosition = this.getPosition(this.head, direction);
+      return res && !this.isKillerHead(adjacentPosition);
+    }, true);
+  }
+
   getBestMoves() {
-    const moves = this.getSafeMoves(this.head);
+    let moves = this.getSafeMoves(this.head);
     const maxRank = moves.reduce((max, move) => {
       const newRank = this.rankDirection(move);
       return newRank > max ? newRank : max;
     }, 0);
+
+    // If there are options, avoid going to spaces beside killer heads
+    if (moves.length > 1) {
+      const saferMoves = moves.filter((move) => {
+        return this.noAdjacentKillerHead([move]);
+      });
+      if (saferMoves.length > 0) {
+        debug('safer moves!');
+        moves = saferMoves;
+      }
+    }
+
     return moves.filter((move) => this.rankDirection(move) === maxRank);
   }
 }
@@ -199,8 +232,11 @@ const getMove = (you, board) => {
 
     if (closestWeakHeadPath) {
       const nextPosition = pathfinding.getNextPosition(closestWeakHeadPath);
+      const nextSafeMoves = directionManager.getSafeMoves(nextPosition);
+      const noAdjacentKiller = directionManager.noAdjacentKillerHead(nextSafeMoves);
+      const movesAvailable = nextSafeMoves.length !== 0;
 
-      if (directionManager.getSafeMoves(nextPosition.length !== 0)) {
+      if (movesAvailable && noAdjacentKiller) {
         const move = directionManager.directionTo(nextPosition);
         debug('kill');
         debug(move);
@@ -210,16 +246,21 @@ const getMove = (you, board) => {
   }
 
   // FOOD!
-  const closestFoodPath = pathfinding.getShortestFoodPath(board.food);
+  if (board.food.length !== 0) {
+    const closestFoodPath = pathfinding.getShortestFoodPath(board.food);
 
-  if (closestFoodPath) {
-    const nextPosition = pathfinding.getNextPosition(closestFoodPath);
+    if (closestFoodPath) {
+      const nextPosition = pathfinding.getNextPosition(closestFoodPath);
+      const nextSafeMoves = directionManager.getSafeMoves(nextPosition);
+      const noAdjacentKiller = directionManager.noAdjacentKillerHead(nextSafeMoves);
+      const movesAvailable = nextSafeMoves.length !== 0;
 
-    if (directionManager.getSafeMoves(nextPosition).length !== 0) {
-      const move = directionManager.directionTo(nextPosition);
-      debug('food');
-      debug(move);
-      return move;
+      if (movesAvailable && noAdjacentKiller) {
+        const move = directionManager.directionTo(nextPosition);
+        debug('food');
+        debug(move);
+        return move;
+      }
     }
   }
 
