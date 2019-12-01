@@ -1,13 +1,13 @@
 const PF = require('pathfinding');
 
-let showDebug = false;
+let showDebug = true;
 const debug = (message) => showDebug && console.log(message);
 const printGrid = (grid) => {
   debug(grid.reduce((str, row) => str + row.join(' ') + '\n', ''));
 };
 
 class DirectionManager {
-  update(you, board) {
+  constructor(you, board) {
     this.you = you;
     this.head = you.body[0];
     this.board = board;
@@ -65,7 +65,6 @@ class DirectionManager {
         }
       }
     });
-    debug({ killerHead });
     return killerHead;
   }
 
@@ -91,7 +90,7 @@ class DirectionManager {
       });
       if (saferMoves.length > 0) {
         debug('safer moves!');
-        moves = saferMoves;
+        return saferMoves;
       }
     }
 
@@ -100,13 +99,14 @@ class DirectionManager {
 }
 
 class PathFinding {
-  update(you, board) {
+  constructor(you, board) {
     this.you = you;
     this.head = you.body[0];
     this.board = board;
     this.snakes = board.snakes;
     this.foodMatrix = undefined;
     this.killMatrix = undefined;
+    this.tailMatrix = undefined;
   }
 
   getFoodMatrix() {
@@ -141,6 +141,40 @@ class PathFinding {
       this.foodMatrix = new PF.Grid(grid);
     }
     return this.foodMatrix;
+  }
+
+  getTailMatrix() {
+    if (this.tailMatrix === undefined) {
+      const grid = Array(this.board.height)
+        .fill()
+        .map(() => Array(this.board.width).fill(0));
+
+      this.snakes.forEach((snake) => {
+        const isFullHealth = snake.health === 100;
+
+        snake.body.forEach((segment, index) => {
+          const { x, y } = segment;
+          const isTail = index === snake.body.length - 1;
+          const nextTailSolid = isTail && isFullHealth && snake.id !== this.you.id;
+
+          if (!isTail || nextTailSolid) {
+            grid[y][x] = 1;
+          }
+
+          if (index === 0 && snake.id !== this.you.id) {
+            if (!!grid[y][x + 1]) grid[y][x + 1] = 1;
+            if (!!grid[y][x - 1]) grid[y][x - 1] = 1;
+            if (!!grid[y + 1]) grid[y + 1][x] = 1;
+            if (!!grid[y - 1]) grid[y - 1][x] = 1;
+          }
+        });
+      });
+
+      debug('food matrix');
+      printGrid(grid);
+      this.tailMatrix = new PF.Grid(grid);
+    }
+    return this.tailMatrix;
   }
 
   getKillMatrix() {
@@ -203,6 +237,10 @@ class PathFinding {
     );
   }
 
+  getShortestTailPath(target) {
+    return this.getPath(target, this.getTailMatrix());
+  }
+
   getShortestPath(paths) {
     return paths
       .filter((path) => path.length !== 0)
@@ -214,21 +252,20 @@ class PathFinding {
   }
 }
 
-const directionManager = new DirectionManager();
-const pathfinding = new PathFinding();
-
 const getMove = (you, board) => {
   debug('--------------------------------------');
   debug({ you });
   debug({ board });
 
-  directionManager.update(you, board);
-  pathfinding.update(you, board);
+  const directionManager = new DirectionManager(you, board);
+  const pathfinding = new PathFinding(you, board);
+
+  const maxBodySize = 20;
 
   // KILLING!
   const weakSnakes = board.snakes.filter((snake) => snake.body.length < you.body.length);
 
-  if (weakSnakes.length !== 0 && you.health > 40) {
+  if (weakSnakes.length !== 0 && you.health > 40 && you.body.length < maxBodySize) {
     const weakHeads = weakSnakes.map((snake) => snake.body[0]);
     const closestWeakHeadPath = pathfinding.getShortestKillPath(weakHeads);
 
@@ -251,7 +288,10 @@ const getMove = (you, board) => {
   // FOOD!
   const strongSnakes = board.snakes.filter((snake) => snake.body.length >= you.body.length);
 
-  if (board.food.length !== 0 && strongSnakes.length !== 0) {
+  if (
+    board.food.length !== 0 &&
+    ((strongSnakes.length !== 0 && you.body.length < maxBodySize) || you.health < 50)
+  ) {
     const closestFoodPath = pathfinding.getShortestFoodPath(board.food);
 
     if (closestFoodPath) {
@@ -267,6 +307,24 @@ const getMove = (you, board) => {
         debug(move);
         return move;
       }
+    }
+  }
+
+  // DEFEND!
+  const tail = you.body[you.body.length - 1];
+  const tailPath = pathfinding.getShortestTailPath(tail);
+
+  if (tailPath && tailPath.length !== 0) {
+    const nextPosition = pathfinding.getNextPosition(tailPath);
+    const noAdjacentKiller = directionManager.noAdjacentKillerHead(nextPosition);
+
+    debug({ noAdjacentKiller });
+
+    if (noAdjacentKiller) {
+      const move = directionManager.directionTo(nextPosition);
+      debug('defend');
+      debug(move);
+      return move;
     }
   }
 
