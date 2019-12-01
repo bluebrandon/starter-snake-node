@@ -1,6 +1,6 @@
 const PF = require('pathfinding');
 
-let showDebug = true;
+let showDebug = false;
 const debug = (message) => showDebug && console.log(message);
 const printGrid = (grid) => {
   debug(grid.reduce((str, row) => str + row.join(' ') + '\n', ''));
