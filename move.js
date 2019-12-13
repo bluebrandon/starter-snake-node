@@ -104,13 +104,11 @@ class PathFinding {
     this.head = you.body[0];
     this.board = board;
     this.snakes = board.snakes;
-    this.foodMatrix = undefined;
-    this.killMatrix = undefined;
-    this.tailMatrix = undefined;
+    this.matrix = undefined;
   }
 
-  getFoodMatrix() {
-    if (this.foodMatrix === undefined) {
+  getMatrix() {
+    if (this.matrix === undefined) {
       const grid = Array(this.board.height)
         .fill()
         .map(() => Array(this.board.width).fill(0));
@@ -122,106 +120,36 @@ class PathFinding {
           const { x, y } = segment;
           const isTail = index === snake.body.length - 1;
           const nextTailSolid = isTail && isFullHealth;
+          const isHead = index === 0;
+          const dangerousHead = isHead && snake.body.length >= this.you.body.length;
+          const isYou = snake.id === this.you.id;
 
-          if (!isTail || nextTailSolid) {
+          if (!isTail && !isHead) {
+            grid[y][x] = 1;
+          } 
+
+          if (nextTailSolid) {
             grid[y][x] = 1;
           }
 
-          if (index === 0 && snake.id !== this.you.id) {
-            if (!!grid[y][x + 1]) grid[y][x + 1] = 1;
-            if (!!grid[y][x - 1]) grid[y][x - 1] = 1;
-            if (!!grid[y + 1]) grid[y + 1][x] = 1;
-            if (!!grid[y - 1]) grid[y - 1][x] = 1;
+          if (dangerousHead && !isYou) {
+            grid[y][x] = 1;
+            if (grid[y][x + 1] !== undefined) grid[y][x + 1] = 1;
+            if (grid[y][x - 1] !== undefined) grid[y][x - 1] = 1;
+            if (grid[y + 1] !== undefined) grid[y + 1][x] = 1;
+            if (grid[y - 1] !== undefined) grid[y - 1][x] = 1;
           }
         });
       });
 
-      debug('food matrix');
+      debug('matrix');
       printGrid(grid);
-      this.foodMatrix = new PF.Grid(grid);
+      this.matrix = new PF.Grid(grid);
     }
-    return this.foodMatrix;
+    return this.matrix;
   }
 
-  getTailMatrix() {
-    if (this.tailMatrix === undefined) {
-      const grid = Array(this.board.height)
-        .fill()
-        .map(() => Array(this.board.width).fill(0));
-
-      this.snakes.forEach((snake) => {
-        const isFullHealth = snake.health === 100;
-
-        snake.body.forEach((segment, index) => {
-          const { x, y } = segment;
-          const isTail = index === snake.body.length - 1;
-          const nextTailSolid = isTail && isFullHealth && snake.id !== this.you.id;
-
-          if (!isTail || nextTailSolid) {
-            grid[y][x] = 1;
-          }
-
-          if (index === 0 && snake.id !== this.you.id) {
-            if (!!grid[y][x + 1]) grid[y][x + 1] = 1;
-            if (!!grid[y][x - 1]) grid[y][x - 1] = 1;
-            if (!!grid[y + 1]) grid[y + 1][x] = 1;
-            if (!!grid[y - 1]) grid[y - 1][x] = 1;
-          }
-        });
-      });
-
-      debug('tail matrix');
-      printGrid(grid);
-      this.tailMatrix = new PF.Grid(grid);
-    }
-    return this.tailMatrix;
-  }
-
-  getKillMatrix() {
-    if (this.killMatrix === undefined) {
-      const grid = Array(this.board.height)
-        .fill()
-        .map(() => Array(this.board.width).fill(0));
-
-      // Go after weak snakes
-      this.snakes.forEach((snake) => {
-        if (snake.body.length < this.you.body.length) {
-          snake.body.forEach((segment, index) => {
-            const { x, y } = segment;
-            const isHead = index === 0;
-
-            if (!isHead) {
-              grid[y][x] = 1;
-            }
-          });
-        } else {
-          snake.body.forEach((segment, index) => {
-            const { x, y } = segment;
-            const isTail = index === snake.body.length - 1;
-            const isFullHealth = snake.health === 100;
-            const nextTailSolid = isTail && isFullHealth;
-
-            if (!isTail || nextTailSolid) {
-              grid[y][x] = 1;
-            }
-            if (index === 0 && snake.id !== this.you.id) {
-              if (!!grid[y][x + 1]) grid[y][x + 1] = 1;
-              if (!!grid[y][x - 1]) grid[y][x - 1] = 1;
-              if (!!grid[y + 1]) grid[y + 1][x] = 1;
-              if (!!grid[y - 1]) grid[y - 1][x] = 1;
-            }
-          });
-        }
-      });
-
-      debug('kill matrix');
-      printGrid(grid);
-      this.killMatrix = new PF.Grid(grid);
-    }
-    return this.killMatrix;
-  }
-
-  getPath(target, matrix) {
+  findPathInMatrix(target, matrix) {
     if (this.head.x === target.x && this.head.y === target.y) {
       return [];
     }
@@ -229,22 +157,12 @@ class PathFinding {
     return finder.findPath(this.head.x, this.head.y, target.x, target.y, matrix.clone());
   }
 
-  getShortestFoodPath(targets) {
-    const paths = targets.map((target) => this.getPath(target, this.getFoodMatrix()));
-    return this.getShortestPath(paths);
-  }
+  getPath(target) {
+    return this.findPathInMatrix(target, this.getMatrix());
+  } 
 
-  getShortestKillPath(targets) {
-    return this.getShortestPath(
-      targets.map((target) => this.getPath(target, this.getKillMatrix())),
-    );
-  }
-
-  getShortestTailPath(target) {
-    return this.getPath(target, this.getTailMatrix());
-  }
-
-  getShortestPath(paths) {
+  getShortestPath(targets) {
+    const paths = targets.map((target) => this.findPathInMatrix(target, this.getMatrix()));
     return paths
       .filter((path) => path.length !== 0)
       .reduce((res, path) => (res && path.length > res.length ? res : path), null);
@@ -257,6 +175,7 @@ class PathFinding {
 
 const getMove = (you, board) => {
   debug('--------------------------------------');
+  debug(you.name);
   debug({ you });
   debug({ board });
 
@@ -276,7 +195,7 @@ const getMove = (you, board) => {
 
   if (weakSnakesExist && healthy && smallEnough && !tooManySnakes) {
     const weakHeads = weakSnakes.map((snake) => snake.body[0]);
-    const closestWeakHeadPath = pathfinding.getShortestKillPath(weakHeads);
+    const closestWeakHeadPath = pathfinding.getShortestPath(weakHeads);
 
     if (closestWeakHeadPath) {
       const nextPosition = pathfinding.getNextPosition(closestWeakHeadPath);
@@ -297,7 +216,7 @@ const getMove = (you, board) => {
   const strongSnakesExist = strongSnakes.length !== 0;
 
   if (foodExists && ((strongSnakesExist && smallEnough) || hungry)) {
-    const closestFoodPath = pathfinding.getShortestFoodPath(board.food);
+    const closestFoodPath = pathfinding.getShortestPath(board.food);
 
     if (closestFoodPath) {
       const nextPosition = pathfinding.getNextPosition(closestFoodPath);
@@ -315,14 +234,12 @@ const getMove = (you, board) => {
 
   // DEFEND!
   const tail = you.body[you.body.length - 1];
-  const tailPath = pathfinding.getShortestTailPath(tail);
+  const tailPath = pathfinding.getPath(tail);
   const canFindTail = tailPath && tailPath.length !== 0;
 
   if (canFindTail) {
     const nextPosition = pathfinding.getNextPosition(tailPath);
     const noAdjacentKiller = directionManager.noAdjacentKillerHead(nextPosition);
-
-    debug({ noAdjacentKiller });
 
     if (noAdjacentKiller) {
       const move = directionManager.directionTo(nextPosition);
