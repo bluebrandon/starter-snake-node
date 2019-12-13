@@ -170,7 +170,7 @@ class PathFinding {
         });
       });
 
-      debug('food matrix');
+      debug('tail matrix');
       printGrid(grid);
       this.tailMatrix = new PF.Grid(grid);
     }
@@ -222,6 +222,9 @@ class PathFinding {
   }
 
   getPath(target, matrix) {
+    if (this.head.x === target.x && this.head.y === target.y) {
+      return [];
+    }
     const finder = new PF.AStarFinder();
     return finder.findPath(this.head.x, this.head.y, target.x, target.y, matrix.clone());
   }
@@ -261,11 +264,17 @@ const getMove = (you, board) => {
   const pathfinding = new PathFinding(you, board);
 
   const maxBodySize = 20;
+  const smallEnough = you.body.length < maxBodySize;
+  const healthy = you.health > 40;
+  const hungry = you.health < 50;
+  const foodExists = board.food.length !== 0;
+  const tooManySnakes = board.snakes.length > 6;
 
   // KILLING!
   const weakSnakes = board.snakes.filter((snake) => snake.body.length < you.body.length);
+  const weakSnakesExist = weakSnakes.length !== 0;
 
-  if (weakSnakes.length !== 0 && you.health > 40 && you.body.length < maxBodySize) {
+  if (weakSnakesExist && healthy && smallEnough && !tooManySnakes) {
     const weakHeads = weakSnakes.map((snake) => snake.body[0]);
     const closestWeakHeadPath = pathfinding.getShortestKillPath(weakHeads);
 
@@ -273,8 +282,6 @@ const getMove = (you, board) => {
       const nextPosition = pathfinding.getNextPosition(closestWeakHeadPath);
       const movesAvailable = directionManager.getSafeMoves(nextPosition).length !== 0;
       const noAdjacentKiller = directionManager.noAdjacentKillerHead(nextPosition);
-
-      debug({ noAdjacentKiller });
 
       if (movesAvailable && noAdjacentKiller) {
         const move = directionManager.directionTo(nextPosition);
@@ -287,19 +294,15 @@ const getMove = (you, board) => {
 
   // FOOD!
   const strongSnakes = board.snakes.filter((snake) => snake.body.length >= you.body.length);
+  const strongSnakesExist = strongSnakes.length !== 0;
 
-  if (
-    board.food.length !== 0 &&
-    ((strongSnakes.length !== 0 && you.body.length < maxBodySize) || you.health < 50)
-  ) {
+  if (foodExists && ((strongSnakesExist && smallEnough) || hungry)) {
     const closestFoodPath = pathfinding.getShortestFoodPath(board.food);
 
     if (closestFoodPath) {
       const nextPosition = pathfinding.getNextPosition(closestFoodPath);
       const movesAvailable = directionManager.getSafeMoves(nextPosition).length !== 0;
       const noAdjacentKiller = directionManager.noAdjacentKillerHead(nextPosition);
-
-      debug({ noAdjacentKiller });
 
       if (movesAvailable && noAdjacentKiller) {
         const move = directionManager.directionTo(nextPosition);
@@ -313,8 +316,9 @@ const getMove = (you, board) => {
   // DEFEND!
   const tail = you.body[you.body.length - 1];
   const tailPath = pathfinding.getShortestTailPath(tail);
+  const canFindTail = tailPath && tailPath.length !== 0;
 
-  if (tailPath && tailPath.length !== 0) {
+  if (canFindTail) {
     const nextPosition = pathfinding.getNextPosition(tailPath);
     const noAdjacentKiller = directionManager.noAdjacentKillerHead(nextPosition);
 
