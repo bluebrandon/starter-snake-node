@@ -28,7 +28,7 @@ app.post("/start", (request, response) => {
 
   // Response data
   const data = {
-    color: "#FF0000",
+    color: "#10b3cc",
     headType: "bendr",
     tailType: "round-bum"
   };
