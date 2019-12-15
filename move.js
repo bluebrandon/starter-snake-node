@@ -235,14 +235,11 @@ const getMove = (you, board) => {
 
   if (closestTailPath) {
     const nextPosition = pathfinding.getNextPosition(closestTailPath);
-    const noAdjacentKiller = directionManager.noAdjacentKillerHead(nextPosition);
 
-    if (noAdjacentKiller) {
-      const move = directionManager.directionTo(nextPosition);
-      debug('defend');
-      debug(move);
-      return move;
-    }
+    const move = directionManager.directionTo(nextPosition);
+    debug('defend');
+    debug(move);
+    return move;
   }
 
   // DO YOUR BEST!
