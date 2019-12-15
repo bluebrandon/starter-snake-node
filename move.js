@@ -76,11 +76,9 @@ class DirectionManager {
   }
 
   getBestMoves() {
-    let moves = this.getSafeMoves(this.head);
-    const maxRank = moves.reduce((max, move) => {
-      const newRank = this.rankDirection(move);
-      return newRank > max ? newRank : max;
-    }, 0);
+    const moves = this.getSafeMoves(this.head);
+    const ranks = moves.map((move) => this.rankDirection(move));
+    const maxRank = Math.max(...ranks);
 
     // If there are options, avoid going to spaces beside killer heads
     if (moves.length > 1) {
@@ -157,10 +155,6 @@ class PathFinding {
     return finder.findPath(this.head.x, this.head.y, target.x, target.y, matrix.clone());
   }
 
-  getPath(target) {
-    return this.findPathInMatrix(target, this.getMatrix());
-  } 
-
   getShortestPath(targets) {
     const paths = targets.map((target) => this.findPathInMatrix(target, this.getMatrix()));
     return paths
@@ -234,11 +228,13 @@ const getMove = (you, board) => {
 
   // DEFEND!
   const tail = you.body[you.body.length - 1];
-  const tailPath = pathfinding.getPath(tail);
-  const canFindTail = tailPath && tailPath.length !== 0;
+  const tailTargets = directionManager.getSafeMoves(tail).map((move) => {
+    return directionManager.getPosition(tail, move);
+  });
+  const closestTailPath = pathfinding.getShortestPath([...tailTargets, tail]);
 
-  if (canFindTail) {
-    const nextPosition = pathfinding.getNextPosition(tailPath);
+  if (closestTailPath) {
+    const nextPosition = pathfinding.getNextPosition(closestTailPath);
     const noAdjacentKiller = directionManager.noAdjacentKillerHead(nextPosition);
 
     if (noAdjacentKiller) {
